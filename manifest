@@ -1,7 +1,7 @@
 appname=fn-cocks
-version=0.0.4
+version=0.0.5
 display_name=fn-cocks
-desc=<b>基于 PassWall2 思路的飞牛应用</b><br>节点订阅 + SOCKS5/HTTP 混合代理（支持多端口配置、每条代理可指定独立出口节点）。<br>支持 ss / ssr / vmess / vless / trojan / hysteria2 / tuic 等订阅格式（base64、Clash YAML、sing-box JSON、SSD），内置 sing-box 代理核心。
+desc=<b>基于 PassWall2 思路的飞牛应用</b><br>节点订阅 + SOCKS5/HTTP 混合代理（支持多端口配置、每条代理可指定独立出口节点、节点自定义名称）。<br>支持 ss / ssr / vmess / vless / trojan / hysteria2 / tuic 等订阅格式（base64、Clash YAML、sing-box JSON、SSD），内置 sing-box 代理核心。
 source=thirdparty
 platform=x86
 maintainer=胖啥胖

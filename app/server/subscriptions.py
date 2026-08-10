@@ -136,11 +136,20 @@ class SubscriptionManager(object):
             all_nodes = self.store.load_nodes()
             kept = [n for n in all_nodes if n.get("sub_id") != sub_id]
             now = util.now_ts()
+            # 旧节点中带自定义名称的，按 (type, server, port) 迁移到新节点
+            custom_map = {}
+            for old in all_nodes:
+                if old.get("sub_id") == sub_id and old.get("custom_name"):
+                    key = (old.get("type"), old.get("server"), int(old.get("port") or 0))
+                    custom_map[key] = old["custom_name"]
             for n in nodes:
                 n["id"] = util.new_id()
                 n["sub_id"] = sub_id
                 n["group"] = sub.get("remark") or sub_id
                 n["created_at"] = now
+                key = (n.get("type"), n.get("server"), int(n.get("port") or 0))
+                if key in custom_map:
+                    n["custom_name"] = custom_map[key]
             kept.extend(nodes)
             self.store.save_nodes(kept)
             meta = {
