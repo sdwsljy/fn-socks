@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fn-cocks</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h4l2-6 3 12 2-6h3"/>
+        </svg>
+      </div>
+      <div class="name">fn-cocks<small>节点订阅 &amp; SOCKS/HTTP 代理</small></div>
+    </div>
+    <nav id="nav">
+      <button data-view="overview" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+        <span>概览</span>
+      </button>
+      <button data-view="subs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="15" r="3"/><path d="M18 9V5"/></svg>
+        <span>节点订阅</span>
+      </button>
+      <button data-view="nodes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.3 7.3l7.4 2.4M8.3 16.7l7.4-2.4"/></svg>
+        <span>节点列表</span>
+      </button>
+      <button data-view="socks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 5V3M16 5V3M3 10h18"/></svg>
+        <span>SOCKS / HTTP</span>
+      </button>
+      <button data-view="logs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        <span>运行日志</span>
+      </button>
+    </nav>
+    <div class="sidebar-foot" id="version-label">v1.0.0</div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h1 id="view-title">概览<span class="en" id="view-title-en">OVERVIEW</span></h1>
+      <div class="status-pill" id="core-pill">
+        <span class="dot"></span><span id="core-state">检测中…</span>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <section id="view-overview" class="view active">
+        <div class="stats">
+          <div class="stat"><div class="label">代理核心</div><div class="value" id="ov-core">—</div><div class="sub" id="ov-core-ver">sing-box</div></div>
+          <div class="stat"><div class="label">SOCKS 端口</div><div class="value" id="ov-port">—</div><div class="sub" id="ov-socks-state">未启用</div></div>
+          <div class="stat"><div class="label">节点总数</div><div class="value" id="ov-nodes">0</div><div class="sub">来自订阅 / 手动导入</div></div>
+          <div class="stat"><div class="label">订阅数量</div><div class="value" id="ov-subs">0</div><div class="sub" id="ov-active-node">未选择当前节点</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>当前代理节点</h2><div class="hint" id="ov-node-hint"></div></div>
+          <div class="panel-body" id="ov-node-panel">
+            <div class="empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.3 7.3l7.4 2.4M8.3 16.7l7.4-2.4"/></svg>
+              <p>尚未选择节点</p>
+              <div class="hint">前往「节点列表」选择一个节点作为当前节点，然后在 SOCKS 配置中启用代理</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>快速操作</h2></div>
+          <div class="panel-body" style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn primary" id="quick-update">更新全部订阅</button>
+            <button class="btn" id="quick-import">导入节点链接</button>
+            <button class="btn" id="quick-apply">应用代理配置</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-subs" class="view">
+        <div class="toolbar">
+          <button class="btn primary" id="sub-add-btn">＋ 添加订阅</button>
+          <button class="btn" id="sub-update-all-btn">全部更新</button>
+          <div class="spacer"></div>
+          <span class="hint" style="color:var(--muted);font-size:12px;" id="sub-count-hint"></span>
+        </div>
+        <div class="panel">
+          <div class="panel-body" style="padding:0;">
+            <table>
+              <thead>
+                <tr><th>备注</th><th>订阅地址</th><th>节点数</th><th>状态</th><th>套餐信息</th><th>最近更新</th><th style="width:170px;">操作</th></tr>
+              </thead>
+              <tbody id="sub-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-nodes" class="view">
+        <div class="toolbar">
+          <button class="btn primary" id="node-import-btn">＋ 导入链接</button>
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="node-search" placeholder="搜索节点 / 服务器…">
+          </div>
+          <select id="node-group-filter" style="width:170px;"><option value="">全部分组</option></select>
+          <div class="spacer"></div>
+          <span class="hint" style="color:var(--muted);font-size:12px;" id="node-count-hint"></span>
+        </div>
+        <div class="panel">
+          <div class="panel-body" style="padding:0;">
+            <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr><th>节点名称</th><th>类型</th><th>服务器</th><th>分组</th><th>延迟</th><th style="width:210px;">操作</th></tr>
+              </thead>
+              <tbody id="node-tbody"></tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-socks" class="view">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>SOCKS5 / HTTP 代理</h2>
+            <div class="hint">每个端口同时提供 SOCKS5 与 HTTP 代理（mixed 入站）；可配置多个代理端口，每条可指定独立出口节点</div>
+          </div>
+          <div class="panel-body">
+            <div class="toolbar">
+              <button class="btn" id="proxy-add" type="button">＋ 添加代理</button>
+              <span class="spacer"></span>
+              <span id="proxy-status-text" style="color:var(--muted);font-size:12.5px;"></span>
+              <button class="btn primary" id="proxy-apply-btn" type="button">保存并应用（重启核心）</button>
+            </div>
+            <table>
+              <thead>
+                <tr><th>启用</th><th>监听地址</th><th>端口</th><th>认证</th><th>出口节点</th><th style="text-align:right;">操作</th></tr>
+              </thead>
+              <tbody id="proxy-list"></tbody>
+            </table>
+            <div id="proxy-msg" class="desc" style="margin-top:10px;"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>使用示例</h2><div class="hint">同一端口两种协议均可连接</div></div>
+          <div class="panel-body">
+            <div class="log-box" style="height:auto; min-height:0; font-size:12.5px;" id="socks-example">
+# HTTP 代理（curl）
+curl -x http://127.0.0.1:1080 https://example.com
+
+# SOCKS5 代理（curl）
+curl -x socks5://127.0.0.1:1080 https://example.com
+
+# 浏览器 / 系统代理
+协议: HTTP 或 SOCKS5   地址: 127.0.0.1   端口: 1080
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="modal-mask" id="proxy-modal">
+        <div class="modal">
+          <div class="modal-head"><h3 id="proxy-modal-title">添加代理</h3><button class="modal-close" id="pm-cancel" type="button">&times;</button></div>
+          <div class="modal-body">
+            <div class="form-grid">
+              <div class="field">
+                <label for="pm-listen">监听地址</label>
+                <select id="pm-listen">
+                  <option value="0.0.0.0">0.0.0.0（局域网可访问）</option>
+                  <option value="127.0.0.1">127.0.0.1（仅本机）</option>
+                  <option value="::">::（IPv6 全部）</option>
+                  <option value="::1">::1（IPv6 本机）</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="pm-port">监听端口</label>
+                <input type="number" id="pm-port" min="1" max="65535" placeholder="如 7890">
+                <div class="desc">1-65535，不可与其他代理条目重复</div>
+              </div>
+              <div class="field">
+                <label for="pm-node">出口节点</label>
+                <select id="pm-node"></select>
+                <div class="desc">不选择则跟随「全局当前节点」出口</div>
+              </div>
+              <div class="field">
+                <label for="pm-user">用户名 <span class="desc" style="display:inline;margin-left:6px;">（留空为免认证）</span></label>
+                <input type="text" id="pm-user" placeholder="可选" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="pm-pass">密码</label>
+                <input type="password" id="pm-pass" placeholder="可选" autocomplete="new-password">
+                <div class="desc">编辑时留空表示不修改原密码</div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn" id="pm-cancel2" type="button">取消</button>
+            <button class="btn primary" id="pm-save" type="button">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <section id="view-logs" class="view">
+        <div class="toolbar">
+          <select id="log-source" style="width:150px;">
+            <option value="core">代理核心日志</option>
+            <option value="app">服务运行日志</option>
+          </select>
+          <button class="btn sm" id="log-refresh">刷新</button>
+          <label class="switch" style="margin-left:14px;">
+            <input type="checkbox" id="log-auto" checked>
+            <span class="track"></span>
+            <span class="switch-label">自动刷新（5s）</span>
+          </label>
+        </div>
+        <div class="log-box" id="log-box"></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="modal-mask" id="modal-sub">
+  <div class="modal">
+    <div class="modal-head"><h3>添加订阅</h3><button class="modal-close" data-close="modal-sub">×</button></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>订阅地址 <span class="req">*</span></label>
+        <input type="text" id="sub-url" placeholder="https://example.com/subscribe?token=xxx">
+      </div>
+      <div class="field">
+        <label>备注名称</label>
+        <input type="text" id="sub-remark" placeholder="留空自动取域名">
+      </div>
+      <div class="field">
+        <label>User-Agent</label>
+        <input type="text" id="sub-ua" value="v2rayN/9.99" placeholder="v2rayN/9.99">
+        <div class="desc">部分机场会校验 UA，可填 v2rayN/9.99、ClashForWindows 等</div>
+      </div>
+      <div class="field">
+        <label>自动更新间隔（分钟）</label>
+        <input type="number" id="sub-interval" min="0" value="0" placeholder="0 = 不自动更新">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close="modal-sub">取消</button>
+      <button class="btn primary" id="sub-save-btn">保存并更新</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="modal-import">
+  <div class="modal">
+    <div class="modal-head"><h3>导入节点链接</h3><button class="modal-close" data-close="modal-import">×</button></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>分组名称</label>
+        <input type="text" id="import-group" value="手动导入">
+      </div>
+      <div class="field">
+        <label>分享链接（每行一条，支持 ss / ssr / vmess / vless / trojan / hy2 / tuic）</label>
+        <textarea id="import-text" placeholder="ss://...&#10;vmess://...&#10;vless://...&#10;trojan://..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close="modal-import">取消</button>
+      <button class="btn primary" id="import-save-btn">导入</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+<script src="js/app.js"></script>
+</body>
+</html>
