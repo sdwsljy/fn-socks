@@ -6,7 +6,7 @@
 
 默认输出到本脚本所在项目根目录：
   ICON.PNG (64x64), ICON_256.PNG (256x256)
-  app/ui/images/icon-64.png, app/ui/images/icon-256.png
+  app/ui/images/icon_64.png, app/ui/images/icon_256.png
 """
 import os
 import struct
@@ -15,23 +15,27 @@ import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# ---------------------------------------------------------------- 颜色
 TEAL = (56, 225, 200)
 AMBER = (255, 180, 84)
 BG_TOP = (19, 32, 44)
 BG_BOTTOM = (9, 14, 20)
 BORDER = (56, 225, 200, 90)
 
+# 闪电多边形（单位坐标，y 向下）
 BOLT = [
     (0.55, 0.00), (0.15, 0.55), (0.40, 0.55),
     (0.22, 1.00), (0.85, 0.38), (0.58, 0.38), (0.72, 0.00),
 ]
 
 
+# ---------------------------------------------------------------- 绘制
 def lerp(a, b, t):
     return int(a + (b - a) * t)
 
 
 def point_in_poly(x, y, poly):
+    """射线法判断点是否在多边形内。"""
     inside = False
     n = len(poly)
     j = n - 1
@@ -47,10 +51,12 @@ def point_in_poly(x, y, poly):
 
 
 def sample(size, ux, uy):
+    """返回 (x, y)（0..size-1）像素的 RGBA，坐标用 0..1 归一化。"""
     x = ux * size
     y = uy * size
     cx = size / 2.0
 
+    # 背景：垂直渐变 + 圆角矩形
     t = min(max(uy, 0.0), 1.0)
     r, g, b = lerp(BG_TOP[0], BG_BOTTOM[0], t), lerp(BG_TOP[1], BG_BOTTOM[1], t), lerp(BG_TOP[2], BG_BOTTOM[2], t)
     radius = size * 0.19
@@ -59,12 +65,14 @@ def sample(size, ux, uy):
     dy = max(abs(y - cx) - (half - radius), 0.0)
     dist = (dx * dx + dy * dy) ** 0.5
     if dist > radius:
-        return (0, 0, 0, 0)
+        return (0, 0, 0, 0)  # 圆角外透明
     px, py, pb = r, g, b
 
+    # 圆角矩形描边
     if radius - 2.2 <= dist <= radius:
         px, py, pb = lerp(px, TEAL[0], 0.35), lerp(py, TEAL[1], 0.35), lerp(b, TEAL[2], 0.35)
 
+    # 轨道椭圆（原子环）
     ex = (ux - 0.5) * 2.0
     ey = (uy - 0.5) * 2.0
     a, bb = 0.74, 0.30
@@ -72,15 +80,18 @@ def sample(size, ux, uy):
     if 0.88 <= v <= 1.12:
         px, py, pb = lerp(px, TEAL[0], 0.55), lerp(py, TEAL[1], 0.55), lerp(b, TEAL[2], 0.55)
 
+    # 轨道上的节点圆点
     ndx, ndy = 0.5 + 0.74, 0.5
     ddx, ddy = ux - ndx, uy - ndy
     if ddx * ddx + ddy * ddy <= (0.055) ** 2:
         px, py, pb = AMBER
 
+    # 中心地球环
     dist_c = ((ux - 0.5) ** 2 + (uy - 0.5) ** 2) ** 0.5
     if 0.38 <= dist_c <= 0.44:
         px, py, pb = lerp(px, TEAL[0], 0.45), lerp(py, TEAL[1], 0.45), lerp(b, TEAL[2], 0.45)
 
+    # 中央闪电
     if point_in_poly(ux, uy, BOLT):
         px, py, pb = TEAL[0], TEAL[1], TEAL[2]
 
@@ -88,6 +99,7 @@ def sample(size, ux, uy):
 
 
 def render(size, ss=3):
+    """超采样渲染 size×size 图标，返回 RGBA 字节。"""
     big = size * ss
     buf = bytearray()
     for yy in range(size):
@@ -135,8 +147,10 @@ def main():
 
     write_png(os.path.join(out_dir, "ICON.PNG"), 64, render(64))
     write_png(os.path.join(out_dir, "ICON_256.PNG"), 256, render(256))
-    write_png(os.path.join(ui_dir, "icon-64.png"), 64, render(64))
-    write_png(os.path.join(ui_dir, "icon-256.png"), 256, render(256))
+    # 注意：桌面入口图标必须使用下划线命名 icon_64.png / icon_256.png，
+    # 与 app/ui/config 中 "icon": "images/icon_{0}.png" 的 {0} 占位符对应
+    write_png(os.path.join(ui_dir, "icon_64.png"), 64, render(64))
+    write_png(os.path.join(ui_dir, "icon_256.png"), 256, render(256))
 
 
 if __name__ == "__main__":
