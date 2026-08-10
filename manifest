@@ -1,0 +1,17 @@
+appname=fn-cocks
+version=0.0.4
+display_name=fn-cocks
+desc=<b>基于 PassWall2 思路的飞牛应用</b><br>节点订阅 + SOCKS5/HTTP 混合代理（支持多端口配置、每条代理可指定独立出口节点）。<br>支持 ss / ssr / vmess / vless / trojan / hysteria2 / tuic 等订阅格式（base64、Clash YAML、sing-box JSON、SSD），内置 sing-box 代理核心。
+source=thirdparty
+platform=x86
+maintainer=胖啥胖
+maintainer_url=https://club.fnnas.com
+distributor=胖啥胖
+distributor_url=https://club.fnnas.com
+install_type=root
+os_min_version=0.9.0
+service_port=15666
+checkport=false
+desktop_uidir=ui
+desktop_applaunchname=fn-cocks.main
+checksum=

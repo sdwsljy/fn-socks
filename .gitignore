@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+dev-data/
+build/
+dist/
+*.fpk
+app/bin/sing-box
