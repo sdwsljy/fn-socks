@@ -29,6 +29,37 @@ def _err(message, code=400):
     return {"ok": False, "error": message}
 
 
+def resolve_active_node(store, settings, proxies, nodes, log=None):
+    """解析全局当前节点；必要时自动选择第一个节点。
+
+    返回 (node_dict_or_None, error_str_or_None)。
+    - 无启用代理 -> (None, None)
+    - 全部启用的代理都指定了 node_id -> (None, None)  不需要全局节点
+    - 存在未指定 node_id 的代理但无全局节点 -> 自动选第一个节点
+    - 完全没有节点 -> (None, "尚无节点：请先添加订阅并更新节点列表")
+    """
+    enabled_list = [p for p in (proxies or []) if p.get("enabled")]
+    if not enabled_list:
+        return None, None
+    if not nodes:
+        return None, "尚无节点：请先添加订阅并更新节点列表"
+    active_id = settings.get("active_node_id")
+    node = next((n for n in nodes if n.get("id") == active_id), None)
+    if node:
+        return node, None
+    # 有启用代理但无全局节点：若全部代理都指定了 node_id 则不需要全局节点
+    needs_global = any(not p.get("node_id") for p in enabled_list)
+    if not needs_global:
+        return None, None
+    # 自动选择第一个节点作为当前节点
+    node = nodes[0]
+    settings["active_node_id"] = node.get("id")
+    store.save_settings(settings)
+    if log:
+        log.info("自动选择节点: %s" % (node.get("custom_name") or node.get("name") or node.get("id")))
+    return node, None
+
+
 def register_routes(app, ctx):
     # ---------------------------------------------------------------- 状态
     @app.route("GET", r"/api/status")
@@ -337,33 +368,8 @@ def register_routes(app, ctx):
         return _ok(message="已删除")
 
     def _resolve_active_node(settings, proxies, nodes):
-        """解析全局当前节点；必要时自动选择第一个节点。
-
-        返回 (node_dict_or_None, error_str_or_None)。
-        - 无启用代理 -> (None, None)
-        - 全部启用的代理都指定了 node_id -> (None, None)  不需要全局节点
-        - 存在未指定 node_id 的代理但无全局节点 -> 自动选第一个节点
-        - 完全没有节点 -> (None, "尚无节点：请先添加订阅并更新节点列表")
-        """
-        enabled_list = [p for p in (proxies or []) if p.get("enabled")]
-        if not enabled_list:
-            return None, None
-        if not nodes:
-            return None, "尚无节点：请先添加订阅并更新节点列表"
-        active_id = settings.get("active_node_id")
-        node = next((n for n in nodes if n.get("id") == active_id), None)
-        if node:
-            return node, None
-        # 有启用代理但无全局节点：若全部代理都指定了 node_id 则不需要全局节点
-        needs_global = any(not p.get("node_id") for p in enabled_list)
-        if not needs_global:
-            return None, None
-        # 自动选择第一个节点作为当前节点
-        node = nodes[0]
-        settings["active_node_id"] = node.get("id")
-        ctx.store.save_settings(settings)
-        ctx.log.info("自动选择节点: %s" % (node.get("custom_name") or node.get("name") or node.get("id")))
-        return node, None
+        """解析全局当前节点（复用模块级逻辑）。"""
+        return resolve_active_node(ctx.store, settings, proxies, nodes, ctx.log)
 
     @app.route("POST", r"/api/config/proxies/apply")
     def apply_proxies(req):

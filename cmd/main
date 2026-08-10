@@ -54,6 +54,17 @@ stop() {
     fi
     rm -f "$PID_FILE"
   fi
+  # 兜底：清理 sing-box 核心进程（后端正常退出会自动停止，此处防残留）
+  SB_PID_FILE="$DATA_DIR/core/core.pid"
+  if [ -f "$SB_PID_FILE" ]; then
+    SB_PID="$(cat "$SB_PID_FILE" 2>/dev/null)"
+    if [ -n "$SB_PID" ]; then
+      kill "$SB_PID" 2>/dev/null
+      sleep 1
+      kill -9 "$SB_PID" 2>/dev/null
+    fi
+    rm -f "$SB_PID_FILE" 2>/dev/null
+  fi
   exit 0
 }
 

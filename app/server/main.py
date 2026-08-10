@@ -12,6 +12,7 @@ import signal
 import sys
 import time
 
+# 支持以脚本方式直接运行（python main.py），等价于包内运行
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     __package__ = "server"
@@ -25,6 +26,31 @@ from .subscriptions import SubscriptionManager
 from .web import App, Server
 
 DEFAULT_PORT = 8080
+
+
+def auto_start_core(store, core, logger):
+    """核心自启动：后端启动时自动恢复代理核心。
+
+    读取设置中的代理配置，若存在启用的代理条目且有可用节点，
+    则自动生成配置并启动 sing-box 核心（等价于用户在页面上点击「应用」）。
+    失败仅记录日志，不阻断后端启动。
+    """
+    try:
+        settings = store.load_settings()
+        proxies = settings.get("proxies") or []
+        enabled = [p for p in proxies if p.get("enabled")]
+        if not enabled:
+            logger.info("核心自启动: 无启用的代理配置，跳过")
+            return
+        nodes = store.load_nodes()
+        node, err = api_mod.resolve_active_node(store, settings, proxies, nodes, logger)
+        if err:
+            logger.warn("核心自启动跳过: %s" % err)
+            return
+        ok, msg = core.apply(proxies, node, nodes)
+        logger.info("核心自启动: %s" % msg)
+    except Exception as e:
+        logger.error("核心自启动异常: %s" % e)
 
 
 def build_parser():
@@ -56,6 +82,7 @@ def main(argv=None):
     subs = SubscriptionManager(store, logger)
     core = CoreManager(os.path.join(data_dir, "core"), core_binary=args.core_path, logger=logger)
 
+    # 从设置读取核心路径（优先于启动参数）
     settings = store.load_settings()
     saved_binary = settings.get("core", {}).get("binary")
     if saved_binary:
@@ -85,6 +112,9 @@ def main(argv=None):
     )
     server.start()
     logger.info("监听: %s:%d" % (args.host, args.port))
+
+    # 核心自启动：后端启动时自动恢复代理核心（有启用代理且存在节点时）
+    auto_start_core(store, core, logger)
 
     stop_flag = [False]
 
