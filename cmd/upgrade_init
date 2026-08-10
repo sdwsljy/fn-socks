@@ -1,0 +1,4 @@
+#!/bin/bash
+# 升级前：停止旧服务，保留数据
+"$(dirname "$0")/main" stop 2>/dev/null || true
+exit 0

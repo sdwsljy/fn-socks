@@ -1,0 +1,76 @@
+#!/bin/bash
+# fn-cocks - 服务启停主脚本
+# 用法: main start|stop|status
+
+SERVICE_NAME="fn-cocks"
+PY="$(command -v python3 || echo /usr/bin/python3)"
+SERVER_DIR="$TRIM_APPDEST/server"
+WWW_DIR="$TRIM_APPDEST/www"
+DATA_DIR="$TRIM_PKGVAR"
+PID_FILE="$DATA_DIR/server.pid"
+PORT="${TRIM_SERVICE_PORT:-15666}"
+
+ensure_dirs() {
+  mkdir -p "$DATA_DIR/logs"
+}
+
+start() {
+  ensure_dirs
+  if [ -f "$PID_FILE" ]; then
+    PID="$(cat "$PID_FILE" 2>/dev/null)"
+    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+      exit 0
+    fi
+    rm -f "$PID_FILE"
+  fi
+  if [ ! -x "$PY" ]; then
+    echo "未找到 python3，请先安装 Python 运行时" > "$TRIM_TEMP_LOGFILE"
+    exit 1
+  fi
+  nohup "$PY" "$SERVER_DIR/main.py" \
+    --host 0.0.0.0 \
+    --port "$PORT" \
+    --data-dir "$DATA_DIR" \
+    --www-dir "$WWW_DIR" \
+    --core-path "$TRIM_APPDEST/bin/sing-box" \
+    --log-level info \
+    >> "$DATA_DIR/logs/app.log" 2>&1 &
+  echo $! > "$PID_FILE"
+  sleep 1.5
+  if kill -0 "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null; then
+    exit 0
+  fi
+  echo "服务启动失败，请查看日志: $DATA_DIR/logs/app.log" > "$TRIM_TEMP_LOGFILE"
+  exit 1
+}
+
+stop() {
+  if [ -f "$PID_FILE" ]; then
+    PID="$(cat "$PID_FILE" 2>/dev/null)"
+    if [ -n "$PID" ]; then
+      kill "$PID" 2>/dev/null
+      sleep 1
+      kill -9 "$PID" 2>/dev/null
+    fi
+    rm -f "$PID_FILE"
+  fi
+  exit 0
+}
+
+status() {
+  if [ -f "$PID_FILE" ]; then
+    PID="$(cat "$PID_FILE" 2>/dev/null)"
+    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+      exit 0
+    fi
+    rm -f "$PID_FILE"
+  fi
+  exit 3
+}
+
+case "$1" in
+  start) start ;;
+  stop) stop ;;
+  status) status ;;
+  *) echo "Usage: $0 start|stop|status" > "$TRIM_TEMP_LOGFILE"; exit 1 ;;
+esac

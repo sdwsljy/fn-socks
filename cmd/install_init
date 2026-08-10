@@ -1,0 +1,32 @@
+#!/bin/bash
+# fn-cocks - 安装初始化
+# 1) 确保 python3 可用；2) 校验包内自带 sing-box 核心
+
+set -e
+
+echo "== fn-cocks install_init =="
+
+# ---------- 1) python3 ----------
+PY="$(command -v python3 || true)"
+if [ -z "$PY" ]; then
+  if [ "$(id -u)" = "0" ]; then
+    echo "未找到 python3，尝试通过 apt 安装..."
+    apt-get update -y >/dev/null 2>&1 || true
+    apt-get install -y python3 >/dev/null 2>&1 || true
+  fi
+fi
+PY="$(command -v python3 || true)"
+if [ -z "$PY" ]; then
+  echo "警告: 未找到 python3，请安装 Python 3 运行时后再启动应用" > "$TRIM_TEMP_LOGFILE"
+fi
+
+# ---------- 2) sing-box（随包自带，无需联网下载） ----------
+SB="$TRIM_APPDEST/bin/sing-box"
+if [ -x "$SB" ]; then
+  echo "sing-box 核心就绪: $SB"
+  "$SB" version 2>/dev/null | head -1 || echo "（sing-box 版本输出异常，请手动验证）"
+else
+  echo "警告: 未找到内置核心 $SB，请确认安装包包含 app/bin/sing-box" > "$TRIM_TEMP_LOGFILE"
+fi
+
+exit 0

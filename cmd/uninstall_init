@@ -1,0 +1,4 @@
+#!/bin/bash
+# 卸载前：停止服务（数据目录由系统处理）
+"$(dirname "$0")/main" stop 2>/dev/null || true
+exit 0
