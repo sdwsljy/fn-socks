@@ -14,7 +14,7 @@
 | 模块 | 说明 |
 | --- | --- |
 | 节点订阅 | 支持 base64 链接（ss / ssr / vmess / vless / trojan / hysteria2 / tuic / socks5）、Clash YAML、sing-box JSON、SSD 格式；可设置自定义 User-Agent、定时自动更新；展示套餐流量 / 到期时间（`subscription-userinfo` 头） |
-| 节点管理 | 节点列表、搜索 / 分组过滤、手动导入分享链接、TCP 测速、设置当前节点 |
+| 节点管理 | 节点列表、搜索 / 分组过滤、手动导入分享链接、TCP 测速、设置当前节点、**自定义节点名称**（订阅更新时自动保留） |
 | 代理配置 | 支持**多端口**代理条目（新增 / 编辑 / 删除 / 独立开关），每条可设置监听地址、端口、用户名密码认证，并**指定独立出口节点**（不指定则跟随全局当前节点）；一键应用并重启核心；每个端口同一时间支持 SOCKS5 与 HTTP |
 | 运行日志 | 代理核心日志与服务日志实时查看 |
 
@@ -115,6 +115,7 @@ python tools/run_dev.py --port 15666
 | GET | `/api/nodes` | 节点列表（支持 `sub_id` / `group` / `q` 过滤） |
 | POST | `/api/nodes/import` | 导入分享链接 `{text, group}` |
 | DELETE | `/api/nodes/{id}` | 删除节点 |
+| PUT | `/api/nodes/{id}` | 自定义节点名称 `{name}`（空串恢复原始名称） |
 | POST | `/api/nodes/{id}/select` | 设为当前节点 |
 | POST | `/api/nodes/{id}/test` | TCP 测速 |
 | GET/POST | `/api/config/proxies` | 代理条目列表 / 新增 |
