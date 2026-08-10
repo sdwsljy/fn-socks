@@ -264,13 +264,16 @@ function renderNodes() {
     const latency = n.latency
       ? `<span class="cell-mono" style="color:var(--green);">${n.latency} ms</span>`
       : `<span class="cell-sub">未测</span>`;
+    const display = n.custom_name || n.name;
+    const customTag = n.custom_name ? ' <span class="tag" title="自定义名称">✎</span>' : "";
     return `<tr class="${isActive ? "active-node" : ""}">
-      <td class="cell-name">${esc(n.name)}${isActive ? ' <span class="tag ok">当前</span>' : ""}</td>
+      <td class="cell-name">${esc(display)}${customTag}${isActive ? ' <span class="tag ok">当前</span>' : ""}</td>
       <td><span class="badge ${esc(n.type || "other")}">${esc((n.type || "?").toUpperCase())}</span></td>
       <td class="cell-mono">${esc(n.server)}:${n.port || "—"}</td>
       <td><span class="tag">${esc(n.group || "—")}</span></td>
       <td>${latency}</td>
       <td>
+        <button class="btn sm" onclick="renameNode('${n.id}')">重命名</button>
         <button class="btn sm primary" onclick="selectNode('${n.id}')">设为当前</button>
         <button class="btn sm" onclick="testNode('${n.id}')">测速</button>
         <button class="btn sm" onclick="deleteNode('${n.id}')" style="color:var(--red);">删除</button>
@@ -293,6 +296,20 @@ async function testNode(id) {
   try {
     await api("POST", `/api/nodes/${id}/test`);
     await loadNodes();
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function renameNode(id) {
+  const node = state.nodes.find((n) => n.id === id);
+  if (!node) return;
+  const cur = node.custom_name || node.name || "";
+  const name = prompt("自定义节点名称（留空或取消则恢复为订阅原始名称）：", cur);
+  if (name === null) return;
+  try {
+    await api("PUT", `/api/nodes/${id}`, { name: name.trim() });
+    toast(name.trim() ? "节点已重命名" : "已恢复原始名称", "success");
+    await loadNodes();
+    await loadStatus();
   } catch (e) { toast(e.message, "error"); }
 }
 
@@ -352,7 +369,7 @@ function fillNodeSelect(selectedId) {
   const sel = $("#pm-node");
   const nodes = state.nodes || [];
   sel.innerHTML = `<option value="">（跟随全局当前节点）</option>` +
-    nodes.map((n) => `<option value="${n.id}" ${n.id === selectedId ? "selected" : ""}>${esc(n.name)} (${esc(n.type)})</option>`).join("");
+    nodes.map((n) => `<option value="${n.id}" ${n.id === selectedId ? "selected" : ""}>${esc(n.custom_name || n.name)} (${esc(n.type)})</option>`).join("");
 }
 
 function openProxyModal(title) {
