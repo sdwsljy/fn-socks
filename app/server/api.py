@@ -66,11 +66,11 @@ def register_routes(app, ctx):
                 "has_password": bool(p.get("password")),
                 "udp": bool(p.get("udp")),
                 "node_id": p.get("node_id") or "",
-                "node_name": next((n.get("name") for n in nodes if n.get("id") == p.get("node_id")), None),
+                "node_name": next((n.get("custom_name") or n.get("name") for n in nodes if n.get("id") == p.get("node_id")), None),
             } for p in proxies],
             "active_node": {
                 "id": active_id,
-                "name": active_node.get("name") if active_node else None,
+                "name": (active_node.get("custom_name") or active_node.get("name")) if active_node else None,
                 "type": active_node.get("type") if active_node else None,
             },
             "counts": {"subscriptions": len(subs), "nodes": len(nodes)},
@@ -142,7 +142,8 @@ def register_routes(app, ctx):
             nodes = [n for n in nodes if n.get("group") == group]
         if q:
             nodes = [n for n in nodes if q in (n.get("name") or "").lower()
-                     or q in (n.get("server") or "").lower()]
+                     or q in (n.get("server") or "").lower()
+                     or q in (n.get("custom_name") or "").lower()]
         return _ok(nodes=nodes)
 
     @app.route("POST", r"/api/nodes/import")
@@ -163,6 +164,31 @@ def register_routes(app, ctx):
         if not removed:
             return _err("节点不存在", 404)
         return _ok()
+
+    @app.route("PUT", r"/api/nodes/([^/]+)")
+    def rename_node(req, node_id):
+        """自定义节点名称；name 为空串表示恢复为订阅原始名称。"""
+        body = req.read_json()
+        nodes = ctx.store.load_nodes()
+        target = None
+        for n in nodes:
+            if n.get("id") == node_id:
+                target = n
+                break
+        if not target:
+            return _err("节点不存在", 404)
+        if "name" in body:
+            custom = str(body["name"] or "").strip()
+            if len(custom) > 64:
+                return _err("节点名称过长（最多 64 字符）")
+            target["custom_name"] = custom
+        ctx.store.save_nodes(nodes)
+        return _ok(node={
+            "id": target.get("id"),
+            "name": target.get("name") or "",
+            "custom_name": target.get("custom_name") or "",
+            "display_name": target.get("custom_name") or target.get("name") or "",
+        })
 
     @app.route("POST", r"/api/nodes/([^/]+)/select")
     def select_node(req, node_id):
@@ -207,7 +233,7 @@ def register_routes(app, ctx):
             "node_id": p.get("node_id") or "",
         }
         if nodes is not None:
-            out["node_name"] = next((n.get("name") for n in nodes if n.get("id") == p.get("node_id")), None)
+            out["node_name"] = next((n.get("custom_name") or n.get("name") for n in nodes if n.get("id") == p.get("node_id")), None)
         return out
 
     def _validate_proxy(proxies, body, exclude_id=None):
