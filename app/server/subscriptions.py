@@ -10,7 +10,7 @@ from . import parsers, util
 from .logger import get_logger
 
 DEFAULT_UA = "v2rayN/9.99"
-MAX_CONTENT = 8 * 1024 * 1024
+MAX_CONTENT = 8 * 1024 * 1024  # 8MB 上限
 
 
 class SubscriptionManager(object):
@@ -19,6 +19,7 @@ class SubscriptionManager(object):
         self.log = logger or get_logger(tag="sub")
         self._lock = threading.Lock()
 
+    # ---------------------------------------------------------- 基础 CRUD
     def list_subs(self):
         return self.store.load_subs()
 
@@ -69,10 +70,11 @@ class SubscriptionManager(object):
         subs = self.store.load_subs()
         subs = [s for s in subs if s.get("id") != sub_id]
         self.store.save_subs(subs)
+        # 同时删除该订阅下的节点
         nodes = self.store.load_nodes()
         nodes = [n for n in nodes if n.get("sub_id") != sub_id]
         self.store.save_nodes(nodes)
-        self.log.info("删除订阅 %s 及其节点" % sub_id)
+        self.log.info("删除订阅 %s 及其 %d 个节点" % (sub_id, 0))
         return True
 
     @staticmethod
@@ -80,6 +82,7 @@ class SubscriptionManager(object):
         m = re.search(r"https?://([^/]+)", url)
         return m.group(1) if m else url
 
+    # ---------------------------------------------------------- 抓取与解析
     def fetch(self, sub):
         req = urllib.request.Request(
             sub.get("url", ""),
@@ -108,6 +111,7 @@ class SubscriptionManager(object):
 
     @staticmethod
     def parse_userinfo(headers):
+        """解析 subscription-userinfo 等响应头。"""
         info = {}
         raw = headers.get("Subscription-Userinfo") or headers.get("subscription-userinfo")
         if raw:
@@ -121,6 +125,7 @@ class SubscriptionManager(object):
             info["title"] = title
         return info
 
+    # ---------------------------------------------------------- 更新
     def update_sub(self, sub_id):
         with self._lock:
             sub = self.get_sub(sub_id)
@@ -152,6 +157,12 @@ class SubscriptionManager(object):
                     n["custom_name"] = custom_map[key]
             kept.extend(nodes)
             self.store.save_nodes(kept)
+            # 若当前无选中节点且本次更新产生了节点，自动选择第一个
+            settings = self.store.load_settings()
+            if not settings.get("active_node_id") and nodes:
+                settings["active_node_id"] = nodes[0]["id"]
+                self.store.save_settings(settings)
+                self.log.info("自动选择节点: %s" % (nodes[0].get("name") or nodes[0].get("id")))
             meta = {
                 "last_update": now,
                 "node_count": len(nodes),
@@ -179,6 +190,7 @@ class SubscriptionManager(object):
                 results.append({"id": s["id"], "remark": s.get("remark"), "ok": False, "error": str(e)})
         return results
 
+    # ---------------------------------------------------------- 手动导入
     def import_links(self, text, group="手动导入"):
         text = text or ""
         if not text.strip():
@@ -197,6 +209,12 @@ class SubscriptionManager(object):
             all_nodes.append(n)
             added += 1
         self.store.save_nodes(all_nodes)
+        # 若当前无选中节点且本次导入产生了节点，自动选择第一个
+        settings = self.store.load_settings()
+        if not settings.get("active_node_id") and nodes:
+            settings["active_node_id"] = nodes[0]["id"]
+            self.store.save_settings(settings)
+            self.log.info("自动选择节点: %s" % (nodes[0].get("name") or nodes[0].get("id")))
         self.log.info("手动导入 %d 个节点（组: %s）" % (added, group))
         return added
 

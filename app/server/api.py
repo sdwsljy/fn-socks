@@ -30,11 +30,13 @@ def _err(message, code=400):
 
 
 def register_routes(app, ctx):
+    # ---------------------------------------------------------------- 状态
     @app.route("GET", r"/api/status")
     def status(req):
         subs = ctx.store.load_subs()
         nodes = ctx.store.load_nodes()
         settings = ctx.store.load_settings()
+        socks = settings.get("socks") or {}
         active_id = settings.get("active_node_id")
         active_node = None
         for n in nodes:
@@ -76,6 +78,7 @@ def register_routes(app, ctx):
             "counts": {"subscriptions": len(subs), "nodes": len(nodes)},
         }
 
+    # ---------------------------------------------------------------- 订阅
     @app.route("GET", r"/api/subscriptions")
     def list_subs(req):
         return _ok(subscriptions=ctx.subs.list_subs())
@@ -130,6 +133,7 @@ def register_routes(app, ctx):
         ok_count = sum(1 for r in results if r.get("ok"))
         return _ok(updated=ok_count, total=len(results), results=results)
 
+    # ---------------------------------------------------------------- 节点
     @app.route("GET", r"/api/nodes")
     def list_nodes(req):
         nodes = ctx.store.load_nodes()
@@ -142,8 +146,7 @@ def register_routes(app, ctx):
             nodes = [n for n in nodes if n.get("group") == group]
         if q:
             nodes = [n for n in nodes if q in (n.get("name") or "").lower()
-                     or q in (n.get("server") or "").lower()
-                     or q in (n.get("custom_name") or "").lower()]
+                     or q in (n.get("server") or "").lower()]
         return _ok(nodes=nodes)
 
     @app.route("POST", r"/api/nodes/import")
@@ -163,6 +166,16 @@ def register_routes(app, ctx):
         removed = ctx.subs.delete_node(node_id)
         if not removed:
             return _err("节点不存在", 404)
+        return _ok()
+
+    @app.route("POST", r"/api/nodes/([^/]+)/select")
+    def select_node(req, node_id):
+        nodes = ctx.store.load_nodes()
+        if not any(n.get("id") == node_id for n in nodes):
+            return _err("节点不存在", 404)
+        settings = ctx.store.load_settings()
+        settings["active_node_id"] = node_id
+        ctx.store.save_settings(settings)
         return _ok()
 
     @app.route("PUT", r"/api/nodes/([^/]+)")
@@ -190,16 +203,6 @@ def register_routes(app, ctx):
             "display_name": target.get("custom_name") or target.get("name") or "",
         })
 
-    @app.route("POST", r"/api/nodes/([^/]+)/select")
-    def select_node(req, node_id):
-        nodes = ctx.store.load_nodes()
-        if not any(n.get("id") == node_id for n in nodes):
-            return _err("节点不存在", 404)
-        settings = ctx.store.load_settings()
-        settings["active_node_id"] = node_id
-        ctx.store.save_settings(settings)
-        return _ok()
-
     @app.route("POST", r"/api/nodes/([^/]+)/test")
     def test_node(req, node_id):
         nodes = ctx.store.load_nodes()
@@ -218,7 +221,7 @@ def register_routes(app, ctx):
         ctx.store.save_nodes(nodes)
         return _ok(latency=latency)
 
-    # ---- 代理配置（多条目） ----
+    # ---------------------------------------------------------------- 代理配置（多条目）
     LISTEN_ALLOW = ("0.0.0.0", "127.0.0.1", "::", "::1", "localhost")
 
     def _proxy_out(p, nodes=None):
@@ -233,7 +236,7 @@ def register_routes(app, ctx):
             "node_id": p.get("node_id") or "",
         }
         if nodes is not None:
-            out["node_name"] = next((n.get("custom_name") or n.get("name") for n in nodes if n.get("id") == p.get("node_id")), None)
+            out["node_name"] = next((n.get("name") for n in nodes if n.get("id") == p.get("node_id")), None)
         return out
 
     def _validate_proxy(proxies, body, exclude_id=None):
@@ -294,6 +297,7 @@ def register_routes(app, ctx):
                 break
         if not target:
             return _err("代理条目不存在", 404)
+        # 校验时未提供的字段沿用现有值（如仅切换 enabled）
         probe = {
             "listen": body.get("listen", target.get("listen") or "0.0.0.0"),
             "port": body.get("port", target.get("port") or 0),
@@ -309,6 +313,7 @@ def register_routes(app, ctx):
         if "username" in body:
             target["username"] = str(body["username"] or "")
         if "password" in body:
+            # 密码留空：用户名同时清空时视为清除认证，否则保留原密码
             if body["password"]:
                 target["password"] = str(body["password"])
             elif body.get("username") == "":
@@ -331,20 +336,43 @@ def register_routes(app, ctx):
         ctx.store.save_settings(settings)
         return _ok(message="已删除")
 
+    def _resolve_active_node(settings, proxies, nodes):
+        """解析全局当前节点；必要时自动选择第一个节点。
+
+        返回 (node_dict_or_None, error_str_or_None)。
+        - 无启用代理 -> (None, None)
+        - 全部启用的代理都指定了 node_id -> (None, None)  不需要全局节点
+        - 存在未指定 node_id 的代理但无全局节点 -> 自动选第一个节点
+        - 完全没有节点 -> (None, "尚无节点：请先添加订阅并更新节点列表")
+        """
+        enabled_list = [p for p in (proxies or []) if p.get("enabled")]
+        if not enabled_list:
+            return None, None
+        if not nodes:
+            return None, "尚无节点：请先添加订阅并更新节点列表"
+        active_id = settings.get("active_node_id")
+        node = next((n for n in nodes if n.get("id") == active_id), None)
+        if node:
+            return node, None
+        # 有启用代理但无全局节点：若全部代理都指定了 node_id 则不需要全局节点
+        needs_global = any(not p.get("node_id") for p in enabled_list)
+        if not needs_global:
+            return None, None
+        # 自动选择第一个节点作为当前节点
+        node = nodes[0]
+        settings["active_node_id"] = node.get("id")
+        ctx.store.save_settings(settings)
+        ctx.log.info("自动选择节点: %s" % (node.get("custom_name") or node.get("name") or node.get("id")))
+        return node, None
+
     @app.route("POST", r"/api/config/proxies/apply")
     def apply_proxies(req):
         settings = ctx.store.load_settings()
         proxies = settings.get("proxies") or []
         nodes = ctx.store.load_nodes()
-        active_id = settings.get("active_node_id")
-        node = None
-        for n in nodes:
-            if n.get("id") == active_id:
-                node = n
-                break
-        enabled_list = [p for p in proxies if p.get("enabled")]
-        if not node and enabled_list:
-            return _err("尚未选择节点：请先在节点列表中选择一个节点作为当前节点")
+        node, err = _resolve_active_node(settings, proxies, nodes)
+        if err:
+            return _err(err)
         ok, msg = ctx.core.apply(proxies, node, nodes)
         return _ok(success=ok, message=msg)
 
@@ -409,18 +437,13 @@ def register_routes(app, ctx):
         settings = ctx.store.load_settings()
         proxies = settings.get("proxies") or []
         nodes = ctx.store.load_nodes()
-        active_id = settings.get("active_node_id")
-        node = None
-        for n in nodes:
-            if n.get("id") == active_id:
-                node = n
-                break
-        enabled_list = [p for p in proxies if p.get("enabled")]
-        if not node and enabled_list:
-            return _err("尚未选择节点：请先在节点列表中选择一个节点作为当前节点")
+        node, err = _resolve_active_node(settings, proxies, nodes)
+        if err:
+            return _err(err)
         ok, msg = ctx.core.apply(proxies, node, nodes)
         return _ok(success=ok, message=msg)
 
+    # ---------------------------------------------------------------- 核心
     @app.route("GET", r"/api/core/status")
     def core_status(req):
         return _ok(**ctx.core.status())
@@ -440,6 +463,7 @@ def register_routes(app, ctx):
         ok, msg = ctx.core.restart()
         return _ok(success=ok, message=msg)
 
+    # ---------------------------------------------------------------- 设置
     @app.route("GET", r"/api/settings")
     def get_settings(req):
         settings = ctx.store.load_settings()
@@ -460,6 +484,7 @@ def register_routes(app, ctx):
         ctx.core.set_binary(core.get("binary") or "")
         return _ok()
 
+    # ---------------------------------------------------------------- 日志
     @app.route("GET", r"/api/logs")
     def get_logs(req):
         source = req.get_param("source", "core")
@@ -472,6 +497,7 @@ def register_routes(app, ctx):
 
 
 def _tcp_ping(host, port, timeout=3.0):
+    """简单的 TCP 连通性测试，返回毫秒延迟；失败返回 None。"""
     if not host or not port:
         return None
     import time

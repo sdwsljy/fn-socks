@@ -10,7 +10,7 @@ const VIEWS = {
   overview: ["概览", "OVERVIEW"],
   subs: ["节点订阅", "SUBSCRIPTIONS"],
   nodes: ["节点列表", "NODES"],
-  socks: ["SOCKS / HTTP", "PROXY"],
+  socks: ["SOCKS 配置", "SOCKS"],
   logs: ["运行日志", "LOGS"],
 };
 
@@ -25,6 +25,7 @@ const state = {
   statusTimer: null,
 };
 
+/* ---------------- 基础工具 ---------------- */
 function esc(s) {
   return String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -47,6 +48,7 @@ function humanSize(v) {
   return i === 0 ? `${Math.round(n)} ${units[i]}` : `${n.toFixed(2)} ${units[i]}`;
 }
 
+/* ---------------- API ---------------- */
 async function api(method, path, body) {
   const opt = { method, headers: {} };
   if (body !== undefined) {
@@ -65,6 +67,7 @@ async function api(method, path, body) {
   return data || {};
 }
 
+/* ---------------- Toast ---------------- */
 function toast(msg, type = "info", ms = 3200) {
   const wrap = $("#toast-wrap");
   const el = document.createElement("div");
@@ -75,6 +78,7 @@ function toast(msg, type = "info", ms = 3200) {
   setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 300); }, ms);
 }
 
+/* ---------------- 视图切换 ---------------- */
 function switchView(view) {
   state.view = view;
   $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
@@ -88,6 +92,7 @@ function switchView(view) {
   if (view === "logs") refreshLogs();
 }
 
+/* ---------------- 状态轮询 ---------------- */
 async function loadStatus() {
   try {
     const d = await api("GET", "/api/status");
@@ -126,12 +131,12 @@ function renderActiveNodePanel(d) {
     box.innerHTML = `<div class="empty">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.3 7.3l7.4 2.4M8.3 16.7l7.4-2.4"/></svg>
       <p>尚未选择节点</p>
-      <div class="hint">前往「节点列表」选择一个节点作为当前节点，然后在代理配置中启用</div>
+      <div class="hint">前往「节点列表」选择一个节点作为当前节点，然后在 SOCKS 配置中启用代理</div>
     </div>`;
     hint.textContent = "";
     return;
   }
-  hint.textContent = d.socks.enabled ? "代理已启用" : "代理未启用";
+  hint.textContent = d.socks.enabled ? "SOCKS 已启用" : "SOCKS 未启用";
   const node = state.nodes.find((n) => n.id === d.active_node.id) || {};
   box.innerHTML = `
     <table style="max-width:640px;">
@@ -145,6 +150,7 @@ function renderActiveNodePanel(d) {
     </table>`;
 }
 
+/* ---------------- 订阅 ---------------- */
 async function loadSubs() {
   try {
     const d = await api("GET", "/api/subscriptions");
@@ -194,6 +200,7 @@ async function updateSub(id, silent = false) {
     if (!silent) toast("订阅更新成功", "success");
     await loadSubs();
     await loadNodes();
+    await loadStatus();
   } catch (e) {
     toast("更新失败：" + e.message, "error");
     await loadSubs();
@@ -220,11 +227,13 @@ async function updateAllSubs() {
     toast(`更新完成：成功 ${d.updated} / ${d.total}`, d.updated === d.total ? "success" : "error");
     await loadSubs();
     await loadNodes();
+    await loadStatus();
   } catch (e) { toast(e.message, "error"); }
   btn.disabled = false;
   btn.textContent = "全部更新";
 }
 
+/* ---------------- 节点 ---------------- */
 async function loadNodes() {
   try {
     let url = "/api/nodes";
@@ -243,6 +252,7 @@ function renderNodes() {
   const activeId = state.status && state.status.active_node ? state.status.active_node.id : null;
   $("#node-count-hint").textContent = `共 ${state.nodes.length} 个节点`;
 
+  // 分组过滤选项
   const groups = Array.from(new Set(state.nodes.map((n) => n.group).filter(Boolean)));
   const sel = $("#node-group-filter");
   const cur = sel.value;
@@ -449,10 +459,24 @@ async function deleteProxy(id) {
 async function applyProxies() {
   try {
     const d = await api("POST", "/api/config/proxies/apply", {});
-    toast(d.message || (d.success ? "配置已应用" : "应用失败"), d.success ? "success" : "error");
+    if (d.success) {
+      toast(d.message || "配置已应用", "success");
+    } else {
+      toast(d.message || "应用失败", "error");
+    }
     await loadStatus();
     await loadProxies();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+    // 如果是节点相关错误，引导用户前往节点列表
+    if (e.message.includes("节点")) {
+      setTimeout(() => {
+        if (confirm("需要先选择节点才能启用代理，是否前往节点列表？")) {
+          switchView("nodes");
+        }
+      }, 500);
+    }
+  }
 }
 
 function updateExample(list) {
@@ -469,6 +493,7 @@ function updateExample(list) {
     `协议: HTTP 或 SOCKS5   地址: ${host}   端口: ${port}`;
 }
 
+/* ---------------- 日志 ---------------- */
 async function refreshLogs() {
   if (state.view !== "logs") return;
   const source = $("#log-source").value;
@@ -484,15 +509,18 @@ async function refreshLogs() {
   } catch (e) { /* 静默 */ }
 }
 
+/* ---------------- 弹窗 ---------------- */
 function openModal(id) { $("#" + id).classList.add("open"); }
 function closeModal(id) { $("#" + id).classList.remove("open"); }
 
+/* ---------------- 事件绑定 ---------------- */
 function bindEvents() {
   $("#nav").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-view]");
     if (btn) switchView(btn.dataset.view);
   });
 
+  // 弹窗开关
   $$(".modal-close, [data-close]").forEach((el) => {
     el.addEventListener("click", () => closeModal(el.dataset.close));
   });
@@ -500,6 +528,7 @@ function bindEvents() {
     m.addEventListener("click", (e) => { if (e.target === m) m.classList.remove("open"); });
   });
 
+  // 订阅
   $("#sub-add-btn").addEventListener("click", () => { openModal("modal-sub"); });
   $("#sub-update-all-btn").addEventListener("click", updateAllSubs);
   $("#sub-save-btn").addEventListener("click", async () => {
@@ -528,6 +557,7 @@ function bindEvents() {
     btn.textContent = "保存并更新";
   });
 
+  // 节点
   $("#node-import-btn").addEventListener("click", () => { openModal("modal-import"); });
   $("#import-save-btn").addEventListener("click", async () => {
     const text = $("#import-text").value;
@@ -560,32 +590,51 @@ function bindEvents() {
     loadNodes();
   });
 
+  // 代理配置（多条目）
   $("#proxy-add").addEventListener("click", () => openProxyModal("添加代理"));
   $("#proxy-apply-btn").addEventListener("click", applyProxies);
   $("#pm-save").addEventListener("click", saveProxy);
   $("#pm-cancel").addEventListener("click", closeProxyModal);
   $("#pm-cancel2").addEventListener("click", closeProxyModal);
 
+  // 日志
   $("#log-source").addEventListener("change", refreshLogs);
   $("#log-refresh").addEventListener("click", refreshLogs);
 
+  // 概览快捷操作
   $("#quick-update").addEventListener("click", updateAllSubs);
   $("#quick-import").addEventListener("click", () => openModal("modal-import"));
   $("#quick-apply").addEventListener("click", async () => {
     try {
       const d = await api("POST", "/api/config/proxies/apply", {});
-      toast(d.message || (d.success ? "配置已应用" : "应用失败"), d.success ? "success" : "error");
-      loadStatus();
-    } catch (e) { toast(e.message, "error"); }
+      if (d.success) {
+        toast(d.message || "配置已应用", "success");
+      } else {
+        toast(d.message || "应用失败", "error");
+      }
+      await loadStatus();
+    } catch (e) {
+      toast(e.message, "error");
+      if (e.message.includes("节点")) {
+        setTimeout(() => {
+          if (confirm("需要先选择节点才能启用代理，是否前往节点列表？")) {
+            switchView("nodes");
+          }
+        }, 500);
+      }
+    }
   });
 
+  // 键盘：Esc 关闭弹窗
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") $$(".modal-mask.open").forEach((m) => m.classList.remove("open"));
   });
 }
 
+/* ---------------- 初始化 ---------------- */
 async function init() {
   bindEvents();
+  // 状态轮询
   state.statusTimer = setInterval(loadStatus, 5000);
   loadStatus();
   loadSubs();
