@@ -1,8 +1,8 @@
 #!/bin/bash
-# fn-socks - 服务启停主脚本
+# fn-cocks - 服务启停主脚本
 # 用法: main start|stop|status
 
-SERVICE_NAME="fn-socks"
+SERVICE_NAME="fn-cocks"
 PY="$(command -v python3 || echo /usr/bin/python3)"
 SERVER_DIR="$TRIM_APPDEST/server"
 WWW_DIR="$TRIM_APPDEST/www"

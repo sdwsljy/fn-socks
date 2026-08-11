@@ -27,7 +27,7 @@ def _default_binary_whitelist():
     if appdest:
         dirs.append(os.path.join(appdest, "bin"))
     # 常见系统安装位置
-    dirs.extend(["/usr/local/bin", "/usr/bin", "/opt/sing-box", "/opt/fn-socks/bin"])
+    dirs.extend(["/usr/local/bin", "/usr/bin", "/opt/sing-box", "/opt/fn-cocks/bin"])
     # 开发运行目录
     here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     dirs.append(os.path.join(here, "bin"))
