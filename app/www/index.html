@@ -40,7 +40,7 @@
         <span>运行日志</span>
       </button>
     </nav>
-    <div class="sidebar-foot" id="version-label">v1.0.0</div>
+    <div class="sidebar-foot" id="version-label">v1.0.1</div>
   </aside>
 
   <main class="main">
@@ -273,6 +273,23 @@ curl -x socks5://127.0.0.1:1080 https://example.com
     <div class="modal-foot">
       <button class="btn ghost" data-close="modal-import">取消</button>
       <button class="btn primary" id="import-save-btn">导入</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="modal-login">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-head"><h3>访问令牌登录</h3></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>访问令牌</label>
+        <input type="password" id="login-token" placeholder="粘贴首次启动生成的访问令牌" autocomplete="off">
+        <div class="desc">令牌存储在应用数据目录的 <code>auth_token</code> 文件中；登录后保存在浏览器本地。</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="login-logout" type="button">清除已保存</button>
+      <button class="btn primary" id="login-save-btn" type="button">登录</button>
     </div>
   </div>
 </div>

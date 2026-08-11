@@ -11,13 +11,14 @@ from .web import HTTPError
 
 
 class AppContext(object):
-    def __init__(self, store, subs, core, logger=None, core_log_path=None, app_log_path=None):
+    def __init__(self, store, subs, core, logger=None, core_log_path=None, app_log_path=None, auth_token=None):
         self.store = store
         self.subs = subs
         self.core = core
         self.log = logger or get_logger(tag="api")
         self.core_log_path = core_log_path
         self.app_log_path = app_log_path
+        self.auth_token = auth_token  # Web 访问令牌（None 表示未启用鉴权）
         self._test_lock = threading.Lock()
 
 
@@ -61,6 +62,24 @@ def resolve_active_node(store, settings, proxies, nodes, log=None):
 
 
 def register_routes(app, ctx):
+    # ---------------------------------------------------------------- 鉴权
+    @app.route("GET", r"/api/auth/status")
+    def auth_status(req):
+        # 免鉴权：仅告知前端是否启用了令牌，不泄露 token 本身
+        return {"ok": True, "require_auth": bool(ctx.auth_token)}
+
+    @app.route("POST", r"/api/auth/login")
+    def auth_login(req):
+        # 免鉴权：提交 token 进行校验，常量时间比较防时序侧信道
+        import hmac
+        body = req.read_json()
+        token = str((body or {}).get("token") or "").strip()
+        if not ctx.auth_token:
+            return {"ok": True, "valid": True}  # 未启用鉴权，一律放行
+        if token and hmac.compare_digest(token, ctx.auth_token):
+            return {"ok": True, "valid": True}
+        return {"ok": False, "error": "访问令牌不正确"}
+
     # ---------------------------------------------------------------- 状态
     @app.route("GET", r"/api/status")
     def status(req):

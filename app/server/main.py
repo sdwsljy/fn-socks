@@ -143,6 +143,8 @@ def main(argv=None):
     if saved_binary:
         core.set_binary(saved_binary)
 
+    auth_token = _resolve_auth_token(args, data_dir, logger)
+
     ctx = api_mod.AppContext(
         store=store,
         subs=subs,
@@ -150,9 +152,9 @@ def main(argv=None):
         logger=logger,
         core_log_path=core_log,
         app_log_path=app_log,
+        auth_token=auth_token,
     )
 
-    auth_token = _resolve_auth_token(args, data_dir, logger)
     app = App(auth_token=auth_token, logger=logger)
     if args.www_dir and os.path.isdir(args.www_dir):
         app.serve_static(os.path.abspath(args.www_dir), "/")

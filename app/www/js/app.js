@@ -49,13 +49,26 @@ function humanSize(v) {
 }
 
 /* ---------------- API ---------------- */
+function getToken() { return localStorage.getItem("fn_token") || ""; }
+function setToken(t) {
+  if (t) localStorage.setItem("fn_token", t);
+  else localStorage.removeItem("fn_token");
+}
+
 async function api(method, path, body) {
   const opt = { method, headers: {} };
+  const token = getToken();
+  if (token) opt.headers["Authorization"] = "Bearer " + token;
   if (body !== undefined) {
     opt.headers["Content-Type"] = "application/json";
     opt.body = JSON.stringify(body);
   }
   const resp = await fetch(path, opt);
+  // 401 -> 弹出登录
+  if (resp.status === 401) {
+    openLogin();
+    throw new Error("未授权，请登录访问令牌");
+  }
   let data = null;
   try { data = await resp.json(); } catch (e) { /* ignore */ }
   if (!resp.ok) {
@@ -65,6 +78,58 @@ async function api(method, path, body) {
     throw new Error(data.error || "操作失败");
   }
   return data || {};
+}
+
+/* ---------------- 鉴权登录 ---------------- */
+function openLogin() {
+  $("#login-token").value = "";
+  $("#modal-login").classList.add("open");
+  setTimeout(() => $("#login-token").focus(), 50);
+}
+
+function closeLogin() {
+  $("#modal-login").classList.remove("open");
+}
+
+async function authLogin() {
+  const token = $("#login-token").value.trim();
+  if (!token) { toast("请输入访问令牌", "error"); return; }
+  const btn = $("#login-save-btn");
+  btn.disabled = true;
+  btn.textContent = "验证中…";
+  try {
+    setToken(token);
+    const d = await api("POST", "/api/auth/login", { token });
+    toast("登录成功", "success");
+    closeLogin();
+    // 恢复界面数据
+    loadStatus();
+    loadSubs();
+    loadNodes();
+    loadProxies();
+  } catch (e) {
+    toast("登录失败：" + e.message, "error");
+    setToken("");
+  }
+  btn.disabled = false;
+  btn.textContent = "登录";
+}
+
+function authLogout() {
+  setToken("");
+  toast("已清除本地令牌", "info");
+  openLogin();
+}
+
+async function ensureAuth() {
+  // 首次进入：若启用鉴权且回话无 token（或 token 失效）则弹登录
+  try {
+    const st = await api("GET", "/api/auth/status");
+    if (st.require_auth === false) return;  // 未启用鉴权，无需登录
+  } catch (e) {
+    // /api/auth/status 免鉴权，一般不抛
+  }
+  if (!getToken()) openLogin();
 }
 
 /* ---------------- Toast ---------------- */
@@ -629,11 +694,18 @@ function bindEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") $$(".modal-mask.open").forEach((m) => m.classList.remove("open"));
   });
+
+  // 登录
+  $("#login-save-btn").addEventListener("click", authLogin);
+  $("#login-logout").addEventListener("click", authLogout);
+  $("#login-token").addEventListener("keydown", (e) => { if (e.key === "Enter") authLogin(); });
 }
 
 /* ---------------- 初始化 ---------------- */
 async function init() {
   bindEvents();
+  // 首次进入：若是首次使用（启用了鉴权但未存令牌）则弹登录
+  await ensureAuth();
   // 状态轮询
   state.statusTimer = setInterval(loadStatus, 5000);
   loadStatus();

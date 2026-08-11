@@ -168,7 +168,9 @@ class App(object):
     def dispatch(self, handler):
         req = Request(handler)
         if req.path.startswith("/api/"):
-            if not self._check_auth(req):
+            # 鉴权端点免鉴权：/api/auth/login 与 /api/auth/status
+            # （登录需要提交 token 校验；status 仅返回是否需要令牌，均不泄露敏感信息）
+            if req.path not in ("/api/auth/login", "/api/auth/status") and not self._check_auth(req):
                 return self._send(handler, Response(
                     json.dumps({"error": "未授权，请检查访问令牌"}),
                     status=401,
