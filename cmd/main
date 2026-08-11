@@ -34,6 +34,7 @@ start() {
     --www-dir "$WWW_DIR" \
     --core-path "$TRIM_APPDEST/bin/sing-box" \
     --log-level info \
+    --no-auto-token \
     >> "$DATA_DIR/logs/app.log" 2>&1 &
   echo $! > "$PID_FILE"
   # 健康探测：最多等候 8s，期间轮询 /api/status（带 Authorization 头）以确认存活
