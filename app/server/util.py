@@ -34,7 +34,7 @@ def read_json(path, default=None):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except (OSError, ValueError):
         return default
 
 
@@ -47,10 +47,10 @@ def write_json(path, data):
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         os.replace(tmp_path, path)
-    except Exception:
+    except (OSError, ValueError):
         try:
             os.unlink(tmp_path)
-        except Exception:
+        except OSError:
             pass
         raise
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""生成 fn-cocks 的应用图标（纯标准库，无外部依赖）。
+"""生成 fn-socks 的应用图标（纯标准库，无外部依赖）。
 
 用法:
   python build_icons.py [输出目录]

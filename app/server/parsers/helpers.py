@@ -72,7 +72,7 @@ def parse_host_port(hostport, default_port=None):
                 port = int(p)
             except ValueError:
                 port = default_port
-        return host, port
+        return host, _clamp_port(port, default_port)
     if ":" in hostport:
         host, _, p = hostport.rpartition(":")
         if host == "":
@@ -81,8 +81,21 @@ def parse_host_port(hostport, default_port=None):
             port = int(p)
         except ValueError:
             return hostport, default_port
-        return host, port
+        return host, _clamp_port(port, default_port)
     return hostport, default_port
+
+
+def _clamp_port(port, default_port):
+    """端口范围校验：超出 [1, 65535] 视为非法，回落到 default_port。"""
+    if port is None:
+        return default_port
+    try:
+        p = int(port)
+    except (TypeError, ValueError):
+        return default_port
+    if 1 <= p <= 65535:
+        return p
+    return default_port
 
 
 def qs_get(params, key, default=None):

@@ -202,12 +202,16 @@ def main():
         app_data = os.path.join(tmp, "appdata")
         os.makedirs(app_data)
         app_log = open(os.path.join(tmp, "app-stdout.log"), "wb")
+        # 本地 e2e：允许抓取本地订阅（关闭 SSRF 内网黑名单）+ 关闭 Web 鉴权
+        env = dict(os.environ)
+        env["FN_SOCKS_ALLOW_LOCAL_SUBSCRIPTION"] = "1"
         p2 = subprocess.Popen(
             [sys.executable, MAIN_PY,
              "--host", "127.0.0.1", "--port", str(APP_PORT),
              "--data-dir", app_data, "--www-dir", WWW_DIR,
-             "--core-path", sb, "--log-level", "debug"],
+             "--core-path", sb, "--log-level", "debug", "--no-auto-token"],
             stdout=app_log, stderr=subprocess.STDOUT,
+            env=env,
         )
         procs.append(p2)
         check("应用后端启动", wait_port("127.0.0.1", APP_PORT))

@@ -354,7 +354,7 @@ def parse_link(line):
             return None
         node["raw"] = line
         return node
-    except Exception:
+    except (ValueError, TypeError, KeyError, IndexError):
         return None
 
 

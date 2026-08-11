@@ -9,11 +9,14 @@ sys.path.insert(0, os.path.join(ROOT, "app"))
 
 
 def main():
-    p = argparse.ArgumentParser(description="fn-cocks local dev")
+    p = argparse.ArgumentParser(description="fn-socks local dev")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8080)
     p.add_argument("--core-path", default="")
     p.add_argument("--auth-token", default="")
+    p.add_argument("--auth-token-file", default="")
+    p.add_argument("--no-auto-token", action="store_true",
+                   help="禁用 Web 鉴权（仅本地 dev 用）")
     p.add_argument("--data-dir", default=os.path.join(ROOT, "dev-data"))
     args = p.parse_args()
 
@@ -29,6 +32,10 @@ def main():
     ]
     if args.auth_token:
         sys.argv += ["--auth-token", args.auth_token]
+    elif args.auth_token_file:
+        sys.argv += ["--auth-token-file", args.auth_token_file]
+    if args.no_auto_token:
+        sys.argv += ["--no-auto-token"]
     sys.exit(server_main())
 
 

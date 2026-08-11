@@ -1,4 +1,4 @@
-# fn-cocks
+# fn-socks
 
 基于 [PassWall2](https://github.com/Openwrt-Passwall/openwrt-passwall2) 设计思路实现的飞牛私有云（fnOS）应用，核心能力：
 
@@ -38,7 +38,7 @@
 ## 目录结构
 
 ```
-fn-cocks/
+fn-socks/
 ├── manifest                 # fnOS 应用清单
 ├── ICON.PNG / ICON_256.PNG  # 应用图标（64 / 256）
 ├── LICENSE
@@ -67,13 +67,13 @@ fn-cocks/
 1. 安装官方打包工具 `fnpack`（[下载](https://developer.fnnas.com/docs/cli/fnpack)），在 Linux 上执行：
 
    ```bash
-   cd fn-cocks
+   cd fn-socks
    chmod +x cmd/* tools/*.py
-   fnpack build .            # 生成 fn-cocks.fpk
+   fnpack build .            # 生成 fn-socks.fpk
    ```
 
 2. 将 `.fpk` 上传到飞牛系统：**应用中心 → 本地安装**，或 SSH 执行
-   `appcenter-cli install-fpk fn-cocks.fpk --volume 1`。
+   `appcenter-cli install-fpk fn-socks.fpk --volume 1`。
 
 3. 安装完成后（见 `cmd/install_init`）：
    - 检查 `python3`（缺失时尝试 `apt install python3`）
@@ -124,7 +124,24 @@ python tools/run_dev.py --core-path /path/to/sing-box
 ## 安全提示
 
 - SOCKS5 / HTTP 协议本身不加密：监听地址请优先使用 `127.0.0.1`；对外暴露时务必设置用户名 / 密码。
-- 如需为 Web 界面加访问令牌：在 `cmd/main` 的启动命令追加 `--auth-token <口令>`，前端 API 将要求 `Authorization: Bearer <口令>`。
+- **Web 界面鉴权**：服务首次启动会自动生成访问令牌并写入 `$TRIM_PKGVAR/auth_token`（
+  Python 后端 `_resolve_auth_token` 用 `secrets.token_urlsafe` 生成）。API 调用需在请求头携带：
+  ```
+  Authorization: Bearer <token>
+  ```
+  可通过 `--auth-token <口令>` 显式指定、或 `--auth-token-file <路径>` 从文件读取、或
+  `--no-auto-token` 完全关闭鉴权（**仅本地 dev 用，存在严重安全风险**）。
+  令牌比较使用 `hmac.compare_digest` 抗时序侧信道。
+- **CSRF 防护**：所有非简单 GET 方法请求在跨域情况下默认被拒；浏览器需带 `Origin/Referer` 同源
+  或携带 `Authorization` 头方可通过。
+- **SSRF 防护**：订阅抓取会拒绝指向私网 / 回环 / 链路本地 / 云元数据等不安全地址，
+  并限制重定向次数（默认 ≤3 跳，每跳重新校验目标 IP）。
+- **核心二进制白名单**：`PUT /api/settings` 仅允许将 `core_binary` 指向包内 `bin/` 或
+  `/usr/local/bin`、`/usr/bin`、`/opt/sing-box` 等白名单目录中的 sing-box，防止任意命令执行。
+  环境变量 `FN_SOCKS_BIN_WHITELIST`（路径分隔符为 `PATH` 分隔符）可扩展白名单。
+- **凭据脱敏**：订阅 URL（常常包含机场 token）写入日志前会以 `host:port/***` 形式脱敏；
+  `GET /api/config/socks` 旧版接口不再返回明文 `password`，仅暴露 `has_password` 布尔位。
+- **完整性校验**：若包内附带 `app/bin/sing-box.sha256`，`install_init` 会执行 `sha256sum` 校验。
 
 ## 与 PassWall2 的对应关系
 

@@ -225,7 +225,13 @@ def _apply_tls(ob, data, tls_value=None, reality=False):
 
 
 def build_config(proxies_cfg, active_node, nodes=None, log_file=None):
-    """生成完整 sing-box 配置（支持每条代理独立出口节点）。"""
+    """生成完整 sing-box 配置（支持每条代理独立出口节点）。
+
+    proxies_cfg 应为 list-of-dict；为兼容旧入口允许传入单 dict，
+    此时若未显式声明 enabled 则默认启用，便于调用方传单条快速生成。
+    重要：apply() 已对所有入口规整为 list，因此单 dict 路径不会被生产代码触及，
+    此处的默认启用仅保留给历史调用/单元测试。
+    """
     if isinstance(proxies_cfg, dict):
         proxies_cfg = [proxies_cfg]
         if "enabled" not in proxies_cfg[0]:

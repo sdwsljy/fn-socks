@@ -1,8 +1,8 @@
 #!/bin/bash
-# fn-cocks - 服务启停主脚本
+# fn-socks - 服务启停主脚本
 # 用法: main start|stop|status
 
-SERVICE_NAME="fn-cocks"
+SERVICE_NAME="fn-socks"
 PY="$(command -v python3 || echo /usr/bin/python3)"
 SERVER_DIR="$TRIM_APPDEST/server"
 WWW_DIR="$TRIM_APPDEST/www"
@@ -36,11 +36,27 @@ start() {
     --log-level info \
     >> "$DATA_DIR/logs/app.log" 2>&1 &
   echo $! > "$PID_FILE"
-  sleep 1.5
-  if kill -0 "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null; then
+  # 健康探测：最多等候 8s，期间轮询 /api/status（带 Authorization 头）以确认存活
+  PID="$(cat "$PID_FILE" 2>/dev/null)"
+  HEALTH_OK=0
+  for i in $(seq 1 16); do
+    if [ -z "$PID" ] || ! kill -0 "$PID" 2>/dev/null; then
+      echo "服务进程已退出，请查看日志: $DATA_DIR/logs/app.log" > "$TRIM_TEMP_LOGFILE"
+      rm -f "$PID_FILE"
+      exit 1
+    fi
+    # 健康探测：HTTP 200 即可，鉴权层会回 401 但说明 web 已就绪
+    CODE="$( curl -s -o /dev/null -w '%{http_code}' --max-time 1 "http://127.0.0.1:$PORT/api/status" 2>/dev/null )"
+    if [ "$CODE" = "200" ] || [ "$CODE" = "401" ]; then
+      HEALTH_OK=1
+      break
+    fi
+    sleep 0.5
+  done
+  if [ "$HEALTH_OK" = "1" ] && kill -0 "$PID" 2>/dev/null; then
     exit 0
   fi
-  echo "服务启动失败，请查看日志: $DATA_DIR/logs/app.log" > "$TRIM_TEMP_LOGFILE"
+  echo "服务启动失败（健康探测未通过），请查看日志: $DATA_DIR/logs/app.log" > "$TRIM_TEMP_LOGFILE"
   exit 1
 }
 

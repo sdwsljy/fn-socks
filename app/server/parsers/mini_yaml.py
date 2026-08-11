@@ -280,7 +280,7 @@ class MiniYaml(object):
 def extract_proxies(text):
     try:
         data = load(text)
-    except Exception:
+    except ParseError:
         return None
     if not isinstance(data, dict):
         return None

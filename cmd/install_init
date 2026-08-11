@@ -1,18 +1,18 @@
 #!/bin/bash
-# fn-cocks - 安装初始化
-# 1) 确保 python3 可用；2) 校验包内自带 sing-box 核心
+# fn-socks - 安装初始化
+# 1) 确保 python3 可用；2) 校验包内自带 sing-box 核心（含哈希校验）
 
 set -e
 
-echo "== fn-cocks install_init =="
+echo "== fn-socks install_init =="
 
 # ---------- 1) python3 ----------
 PY="$(command -v python3 || true)"
 if [ -z "$PY" ]; then
   if [ "$(id -u)" = "0" ]; then
-    echo "未找到 python3，尝试通过 apt 安装..."
-    apt-get update -y >/dev/null 2>&1 || true
-    apt-get install -y python3 >/dev/null 2>&1 || true
+    echo "未找到 python3，尝试通过 apt 安装..." > "$TRIM_TEMP_LOGFILE"
+    apt-get update -y >/dev/null 2>&1 || { echo "apt-get update 失败" > "$TRIM_TEMP_LOGFILE"; }
+    apt-get install -y python3 >/dev/null 2>&1 || { echo "apt-get install python3 失败，请手动安装" > "$TRIM_TEMP_LOGFILE"; }
   fi
 fi
 PY="$(command -v python3 || true)"
@@ -22,9 +22,20 @@ fi
 
 # ---------- 2) sing-box（随包自带，无需联网下载） ----------
 SB="$TRIM_APPDEST/bin/sing-box"
+SB_SHA256="$TRIM_APPDEST/bin/sing-box.sha256"
 if [ -x "$SB" ]; then
   echo "sing-box 核心就绪: $SB"
-  "$SB" version 2>/dev/null | head -1 || echo "（sing-box 版本输出异常，请手动验证）"
+  "$SB" version 2>/dev/null | head -1 || echo "（sing-box 版本输出异常，请手动验证）" > "$TRIM_TEMP_LOGFILE"
+  # 完整性校验（如包含 .sha256 文件）
+  if [ -f "$SB_SHA256" ]; then
+    EXPECTED="$(cat "$SB_SHA256" 2>/dev/null | awk '{print $1}')"
+    ACTUAL="$( sha256sum "$SB" 2>/dev/null | awk '{print $1}' )"
+    if [ -n "$EXPECTED" ] && [ -n "$ACTUAL" ] && [ "$EXPECTED" = "$ACTUAL" ]; then
+      echo "sing-box 完整性校验通过"
+    else
+      echo "警告: sing-box 完整性校验失败，请勿运行，重新安装应用" > "$TRIM_TEMP_LOGFILE"
+    fi
+  fi
 else
   echo "警告: 未找到内置核心 $SB，请确认安装包包含 app/bin/sing-box" > "$TRIM_TEMP_LOGFILE"
 fi
