@@ -1,6 +1,6 @@
 {
   ".url": {
-    "fn-cocks.main": {
+    "fn-socks.main": {
       "title": "fn-socks",
       "icon": "images/icon_{0}.png",
       "type": "iframe",

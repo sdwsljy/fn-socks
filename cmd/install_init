@@ -1,10 +1,10 @@
 #!/bin/bash
-# fn-cocks - 安装初始化
+# fn-socks - 安装初始化
 # 1) 确保 python3 可用；2) 校验包内自带 sing-box 核心（含哈希校验）
 
 set -e
 
-echo "== fn-cocks install_init =="
+echo "== fn-socks install_init =="
 
 # ---------- 1) python3 ----------
 PY="$(command -v python3 || true)"
